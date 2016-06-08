@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Regression Test 1</title>
+  <style>
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: sans-serif;
+}
+
+canvas {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+  </style>
+  <script src="jquery-2.2.4.min.js"></script>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <canvas id="overlay"></canvas>
+  <script>
+function m(x, y, p) {
+  var P = 0, exy = 0, exx = 0, ex = 0, ey = 0;
+  for (var i = 0; i < p.length; i++) {
+    P += p[i];
+    exy += x[i] * y[i] * p[i];
+    exx += x[i] * x[i] * p[i];
+    ex += x[i] * p[i];
+    ey += y[i] * p[i];
+  }
+  exy /= P;
+  exx /= P;
+  ex /= P;
+  ey /= P;
+  return (exy - ex * ey) / (exx - ex * ex);
+}
+
+function q(x, y, p, m) {
+  var P = 0, ex = 0, ey = 0;
+  for (var i = 0; i < p.length; i++) {
+    P += p[i];
+    ex += x[i] * p[i];
+    ey += y[i] * p[i];
+  }
+  ex /= P;
+  ey /= P;
+  return ey - m * ex;
+}
+
+const pixelWidth = 4;
+const pixelHeight = 4;
+
+$(function () {
+  var canvas = $('canvas#canvas');
+  var width = Math.floor(canvas.innerWidth() / pixelWidth);
+  var height = Math.floor(canvas.innerHeight() / pixelHeight);
+
+  canvas[0].width = width;
+  canvas[0].height = height;
+
+  var overlay = $('canvas#overlay');
+  overlay[0].width = width;
+  overlay[0].height = height;
+
+  var canvasContext = canvas[0].getContext('2d');
+  var overlayContext = overlay[0].getContext('2d');
+  overlayContext.strokeStyle = 'red';
+
+  var x = [], y = [];
+  for (var yi = 0; yi < height; yi++) {
+    for (var xi = 0; xi < width; xi++) {
+      x.push(xi);
+      y.push(yi);
+    }
+  }
+
+  function regress() {
+    var data = canvasContext.getImageData(0, 0, width, height);
+    var p = [];
+    for (var i = 0; i < width * height * 4; i += 4) {
+      var pixel = 255 - (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 3;
+      var weight = pixel * data.data[i + 3] / 65025;
+      p.push(weight);
+    }
+    var _m = m(x, y, p);
+    var _q = q(x, y, p, _m);
+    overlayContext.clearRect(0, 0, width, height);
+    overlayContext.beginPath();
+    overlayContext.moveTo(0, _q);
+    overlayContext.lineTo(width, _m * width + _q);
+    overlayContext.stroke();
+    overlayContext.closePath();
+  }
+
+  var down = false;
+
+  overlay.mousedown(function (event) {
+    if (event.which == 1) {
+      down = true;
+      canvasContext.beginPath();
+      canvasContext.moveTo(event.clientX / pixelWidth, event.clientY / pixelHeight);
+    }
+  }).mousemove(function (event) {
+    if (down) {
+      canvasContext.lineTo(event.clientX / pixelWidth, event.clientY / pixelHeight);
+      canvasContext.stroke();
+    }
+  }).mouseup(function (event) {
+    if (event.which == 1) {
+      down = false;
+      canvasContext.closePath();
+      regress();
+    }
+  });
+});
+  </script>
+</body>
+</html>
